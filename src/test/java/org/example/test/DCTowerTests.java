@@ -3,7 +3,7 @@ package org.example.test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ElevatorControllerTests {
+public class DCTowerTests {
 
     @Test
     public void TestEnvironmentWorks() {
