@@ -3,7 +3,6 @@ package org.example.objects;
 import lombok.extern.log4j.Log4j2;
 import org.example.enums.ElevatorState;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,23 +21,18 @@ public class ElevatorController {
         this.amountElevators = amountElevators;
     }
 
-    /**
-     * adds the elevator back to the list of available elevators
-     * @param elevator the elevator to be added
-     */
     private void makeAvailable(final Elevator elevator) {
         synchronized (this.availableElevators) {
             this.availableElevators.add(elevator);
             this.availableElevators.notify();
         }
+
+        synchronized (this.busyElevators) {
+            this.busyElevators.remove(elevator);
+            this.busyElevators.notify();
+        }
     }
 
-    /**
-     *
-     * @param currentFloor the floor where the request occurred
-     * @return returns the nearest elevator to the current floor of the request
-     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity
-     */
     private Elevator getNextElevator(final int currentFloor) throws InterruptedException {
         synchronized (this.availableElevators) {
             while (this.availableElevators.isEmpty()) {
@@ -55,6 +49,11 @@ public class ElevatorController {
                 return (int) Math.signum(distance1 - distance2);
             }).orElseThrow();
 
+            synchronized (this.busyElevators) {
+                this.busyElevators.add(nearestElevator);
+                this.busyElevators.notify();
+            }
+
             //TODO: maybe implement intermediate stops
 
             this.availableElevators.remove(nearestElevator);
@@ -69,13 +68,8 @@ public class ElevatorController {
      * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity
      */
     public void sendElevator(final int currentFloor, final int newFloor) throws InterruptedException {
-        if (newFloor < 0 || newFloor > 55) {
-            log.warn(MessageFormat.format("floor not available: {0}", newFloor));
-            return;
-        }
-
         final Elevator elevator = this.getNextElevator(currentFloor);
-        elevator.changeFloor(newFloor);
+        elevator.changeFloor(currentFloor, newFloor);
         this.makeAvailable(elevator);
     }
 
@@ -92,9 +86,13 @@ public class ElevatorController {
                 this.availableElevators.wait();
             }
 
-            // initially, the .forEach function was used, but then I had to add a try/catch clause
-            // hence, a normal foreach loop will do the trick
-            for (final Elevator elevator: availableElevators) { elevator.changeFloor(0); }
+            this.availableElevators.stream().filter(elevator -> elevator.getCurrentFloor() != 0).forEach(elevator -> {
+                try {
+                    elevator.changeFloor(elevator.getCurrentFloor(), 0);
+                } catch (InterruptedException e) {
+                    log.error("thread interrupted");
+                }
+            });
         }
     }
 

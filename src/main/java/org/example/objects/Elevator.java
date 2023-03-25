@@ -21,35 +21,18 @@ public class Elevator {
     private int currentFloor;
     private ElevatorState state; // furthermore, this state can be used to implemented intermediate stops
 
-    /**
-     * determines the elevator state based on the current floor and the new floor
-     * @param newFloor the new floor
-     * @return the new elevator state
-     */
-    private ElevatorState determineElevatorState(final int newFloor) {
-        if (newFloor - currentFloor > 0) return ElevatorState.UP;
-        else if (newFloor - currentFloor < 0) return ElevatorState.DOWN;
-        else return ElevatorState.IDLE;
-    }
-
-    /**
-     * sends the elevator to corresponding floor
-     * @param newFloor the floor where the elevator should travel
-     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
-     */
-    public void changeFloor(final int newFloor) throws InterruptedException {
-        this.state = determineElevatorState(newFloor);
+    private void travel(final int origin, final int destination) throws InterruptedException {
+        if (destination - origin > 0) this.state = ElevatorState.UP;
+        else if (destination - origin < 0) this.state = ElevatorState.DOWN;
+        else this.state = ElevatorState.IDLE;
 
         // do nothing when elevator gets request to travel to the same floor
         if (this.state == ElevatorState.IDLE) {
-            log.info("request to same floor -> doing nothing");
             return;
         }
 
-        final int oldFloor = this.currentFloor;
-
         // simulate elevator travel
-        for (int i = 0; i < Math.abs(oldFloor - newFloor); i++) {
+        for (int i = 0; i < Math.abs(origin - destination); i++) {
             if (this.state == ElevatorState.UP) {
                 this.currentFloor++;
             } else {
@@ -57,10 +40,25 @@ public class Elevator {
             }
 
             // assume that it takes the elevator 100 ms to travel one floor
-            Thread.sleep(100L);
+            Thread.sleep(100);
         }
 
-        log.info(MessageFormat.format("elevator {0} went from floor {1} floor {2}", this.id, oldFloor, newFloor));
         this.state = ElevatorState.IDLE;
+
+        log.info(MessageFormat.format("elevator {0} went from floor {1} floor {2}", this.id, origin, destination));
+    }
+
+    /**
+     * sends the elevator to corresponding floor
+     * @param origin the floor where people want to be picked up
+     * @param destination the floor where the elevator should travel
+     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
+     */
+    public void changeFloor(final int origin, final int destination) throws InterruptedException {
+        // travel from current floor to origin
+        this.travel(this.currentFloor, origin);
+
+        // travel from the origin floor to destination floor
+        this.travel(origin, destination);
     }
 }

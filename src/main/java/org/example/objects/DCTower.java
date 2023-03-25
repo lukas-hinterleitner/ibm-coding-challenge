@@ -27,6 +27,11 @@ public class DCTower {
      * @param newFloor the floor where the elevator should travel
      */
     public void addElevatorRequest(final int currentFloor, final int newFloor) {
+        if (newFloor < 0 || newFloor > 55) {
+            log.warn(MessageFormat.format("floor not available: {0}", newFloor));
+            return;
+        }
+
         log.info(MessageFormat.format("new request from floor {0} to floor {1}", currentFloor, newFloor));
 
         // According to the task description the direction is also needed.
