@@ -15,7 +15,7 @@ public class ElevatorController {
     public ElevatorController(final int amountElevators) {
         // initialization for DC tower --> seven elevators
         for (int i = 0; i < amountElevators; i++) {
-            elevators.add(new Elevator());
+            elevators.add(Elevator.builder().id(i).state(ElevatorState.IDLE).build());
         }
     }
 
@@ -26,7 +26,7 @@ public class ElevatorController {
         }
     }
 
-    public Elevator getElevator() throws InterruptedException {
+    public Elevator getElevator(final int currentFloor, final int newFloor, final Direction direction) throws InterruptedException {
         synchronized (this.elevators) {
             while (this.elevators.isEmpty()) {
                 log.info("wait until elevator is available");
@@ -35,10 +35,19 @@ public class ElevatorController {
 
             log.info("elevator available -- continue");
 
-            //TODO: find best elevator
+            // find the nearest elevator of the current floor
+            final Elevator nearestElevator = elevators.stream().min((elevator1, elevator2) -> {
+                final int distance1 = Math.abs(elevator1.getCurrentFloor() - currentFloor);
+                final int distance2 = Math.abs(elevator2.getCurrentFloor() - currentFloor);
+
+                return (int) Math.signum(distance1 - distance2);
+            }).orElseThrow();
+
             //TODO: maybe implement intermediate stops
 
-            return this.elevators.remove(0);
+
+            this.elevators.remove(nearestElevator);
+            return nearestElevator;
         }
     }
 
@@ -52,7 +61,7 @@ public class ElevatorController {
             }
 
             try {
-                final Elevator elevator = this.getElevator();
+                final Elevator elevator = this.getElevator(currentFloor, newFloor, direction);
 
                 elevator.changeFloor(newFloor, direction);
 
