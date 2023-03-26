@@ -5,9 +5,12 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.log4j.Log4j2;
+import org.example.Utils;
 import org.example.enums.ElevatorState;
 
 import java.text.MessageFormat;
+import java.util.HashSet;
+import java.util.Set;
 
 @Getter
 @Builder
@@ -15,20 +18,34 @@ import java.text.MessageFormat;
 @ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Elevator {
-
     @EqualsAndHashCode.Include
     private int id;
     private int currentFloor;
-    private ElevatorState state; // furthermore, this state can be used to implemented intermediate stops
+    private ElevatorState state;
 
-    private void travel(final int origin, final int destination) throws InterruptedException {
-        if (destination - origin > 0) this.state = ElevatorState.UP;
-        else if (destination - origin < 0) this.state = ElevatorState.DOWN;
-        else this.state = ElevatorState.IDLE;
+    private ElevatorState previousState;
+    private final Set<Integer> intermediateStops = new HashSet<>();
+
+    /**
+     *
+     * @param origin the floor where people want to be picked up
+     * @param destination the floor where the people will be dropped off
+     * @param peopleInside this variable is just for changing the console output depending on if people are inside the elevator or not
+     * @throws InterruptedException
+     */
+    private void travel(final int origin, final int destination, final boolean peopleInside) throws InterruptedException {
+        this.previousState = this.state;
+        this.state = Utils.determineElevatorState(origin, destination, this.previousState);
 
         // do nothing when elevator gets request to travel to the same floor
         if (this.state == ElevatorState.IDLE) {
             return;
+        }
+
+        if (peopleInside) {
+            log.info(MessageFormat.format("elevator {0} started transport from floor {1}", this.id, origin));
+        } else {
+            log.info(MessageFormat.format("elevator {0} started moving from floor {1}", this.id, origin));
         }
 
         // simulate elevator travel
@@ -41,24 +58,54 @@ public class Elevator {
 
             // assume that it takes the elevator 100 ms to travel one floor
             Thread.sleep(100);
+
+            if (this.intermediateStops.contains(this.currentFloor) && this.currentFloor != destination) {
+                openAndCloseDoors();
+                log.info(MessageFormat.format("elevator {0} made an intermediate stop at floor {1}", this.id, this.currentFloor));
+            }
         }
 
-        this.state = ElevatorState.IDLE;
-
-        log.info(MessageFormat.format("elevator {0} went from floor {1} floor {2}", this.id, origin, destination));
+        if (peopleInside) {
+            log.info(MessageFormat.format("elevator {0} finished transport at floor {1}", this.id, destination));
+        } else {
+            log.info(MessageFormat.format("elevator {0} finished moving at floor {1}", this.id, destination));
+        }
     }
 
     /**
-     * sends the elevator to corresponding floor
-     * @param origin the floor where people want to be picked up
-     * @param destination the floor where the elevator should travel
+     * simulate doors
      * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
      */
-    public void changeFloor(final int origin, final int destination) throws InterruptedException {
-        // travel from current floor to origin
-        this.travel(this.currentFloor, origin);
+    private void openAndCloseDoors() throws InterruptedException {
+        this.state = ElevatorState.BUSY;
+        Thread.sleep(200);
+    }
 
-        // travel from the origin floor to destination floor
-        this.travel(origin, destination);
+    /**
+     * starts the elevator
+     * @param origin the floor where people want to be picked up
+     * @param destination the floor where the people will be dropped off
+     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
+     */
+    public void startElevator(final int origin, final int destination) throws InterruptedException {
+        // travel from current floor to origin
+        this.travel(this.currentFloor, origin, false);
+        this.openAndCloseDoors();
+
+        // travel from origin to destination
+        this.travel(origin, destination, true);
+        this.openAndCloseDoors();
+
+        this.previousState = this.state;
+        this.state = ElevatorState.IDLE;
+        this.intermediateStops.clear();
+    }
+
+    /**
+     * adds an intermediate stop to the elevator
+     * @param stop the floor where the elevator should make an intermediate stop
+     */
+    public void addStop(final int stop) {
+        this.intermediateStops.add(stop);
     }
 }

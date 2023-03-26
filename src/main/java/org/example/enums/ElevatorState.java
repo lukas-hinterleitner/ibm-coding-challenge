@@ -1,5 +1,5 @@
 package org.example.enums;
 
 public enum ElevatorState {
-    IDLE, UP, DOWN
+    IDLE, UP, DOWN, BUSY
 }

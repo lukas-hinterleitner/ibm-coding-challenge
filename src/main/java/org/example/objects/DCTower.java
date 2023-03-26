@@ -4,6 +4,7 @@ import lombok.extern.log4j.Log4j2;
 
 import java.text.MessageFormat;
 import java.util.List;
+import java.util.Set;
 
 // singleton
 @Log4j2
@@ -27,6 +28,11 @@ public class DCTower {
      * @param newFloor the floor where the elevator should travel
      */
     public void addElevatorRequest(final int currentFloor, final int newFloor) {
+        if ((currentFloor == 0) && (newFloor == 0)) {
+            log.warn("elevators only travel from the first floor to the office and vice versa");
+            return;
+        }
+
         if (newFloor < 0 || newFloor > 55) {
             log.warn(MessageFormat.format("floor not available: {0}", newFloor));
             return;
@@ -38,7 +44,7 @@ public class DCTower {
         // However, basically the direction can be inferred by checking the current and the new floor against each other
         new Thread(() -> {
             try {
-                this.controller.sendElevator(currentFloor, newFloor);
+                this.controller.startElevator(currentFloor, newFloor);
             } catch (InterruptedException e) {
                 log.error(MessageFormat.format("error occurred when traveling from {0} to {1}", currentFloor, newFloor));
             }
@@ -56,7 +62,7 @@ public class DCTower {
         }
     }
 
-    public List<Elevator> getAvailableElevators() {
+    public Set<Elevator> getAvailableElevators() {
         return this.controller.getAvailableElevators();
     }
 }

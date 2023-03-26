@@ -1,15 +1,15 @@
 package org.example.objects;
 
 import lombok.extern.log4j.Log4j2;
+import org.example.Utils;
 import org.example.enums.ElevatorState;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Log4j2
 public class ElevatorController {
-    private final List<Elevator> availableElevators = new ArrayList<>();
-    private final List<Elevator> busyElevators = new ArrayList<>();
+    private final Set<Elevator> availableElevators = new HashSet<>();
+    private final Map<Elevator, ElevatorState> busyElevators = new HashMap<>();
     private final int amountElevators;
 
     public ElevatorController(final int amountElevators) {
@@ -33,7 +33,30 @@ public class ElevatorController {
         }
     }
 
-    private Elevator getNextElevator(final int currentFloor) throws InterruptedException {
+    private Elevator getNextElevator(final int origin, final int destination) throws InterruptedException {
+        final ElevatorState state = Utils.determineElevatorState(origin, destination, ElevatorState.IDLE);
+
+        synchronized (this.busyElevators) {
+            // get elevators that travel in the same direction and are still on the way to obtain elevator for intermediate stops
+            final Optional<Elevator> elevator = this.busyElevators.entrySet().stream().filter(entrySet -> {
+                final ElevatorState stateOfOtherElevator = entrySet.getValue();
+
+                final boolean goingUp = state == ElevatorState.UP && stateOfOtherElevator == ElevatorState.UP;
+                final boolean goingDown = state == ElevatorState.DOWN && stateOfOtherElevator == ElevatorState.DOWN;
+
+                final Elevator ev = entrySet.getKey();
+
+                // check direction and if stop is still possible
+                return (goingUp && origin > ev.getCurrentFloor()) || (goingDown && origin < ev.getCurrentFloor());
+            }).map(Map.Entry::getKey).findFirst();
+
+            if (elevator.isPresent()) {
+                elevator.get().addStop(origin);
+                elevator.get().addStop(destination);
+                return elevator.get();
+            }
+        }
+
         synchronized (this.availableElevators) {
             while (this.availableElevators.isEmpty()) {
                 log.info("wait until elevator is available");
@@ -43,41 +66,45 @@ public class ElevatorController {
 
             // find the nearest elevator of the current floor
             final Elevator nearestElevator = availableElevators.stream().min((elevator1, elevator2) -> {
-                final int distance1 = Math.abs(elevator1.getCurrentFloor() - currentFloor);
-                final int distance2 = Math.abs(elevator2.getCurrentFloor() - currentFloor);
+                final int distance1 = Math.abs(elevator1.getCurrentFloor() - origin);
+                final int distance2 = Math.abs(elevator2.getCurrentFloor() - origin);
 
                 return (int) Math.signum(distance1 - distance2);
             }).orElseThrow();
 
             synchronized (this.busyElevators) {
-                this.busyElevators.add(nearestElevator);
+                this.busyElevators.put(nearestElevator, Utils.determineElevatorState(origin, destination, ElevatorState.IDLE));
                 this.busyElevators.notify();
             }
 
-            //TODO: maybe implement intermediate stops
-
             this.availableElevators.remove(nearestElevator);
+            this.availableElevators.notify();
             return nearestElevator;
         }
     }
 
     /**
-     *
-     * @param currentFloor the floor where the request occurred
-     * @param newFloor the floor where the elevator should travel
-     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity
+     * @param origin      the floor where the request occurred
+     * @param destination the floor where the elevator should travel
+     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied,
+     *                              and the thread is interrupted, either before or during the activity
      */
-    public void sendElevator(final int currentFloor, final int newFloor) throws InterruptedException {
-        final Elevator elevator = this.getNextElevator(currentFloor);
-        elevator.changeFloor(currentFloor, newFloor);
+    public void startElevator(final int origin, final int destination) throws InterruptedException {
+        final Elevator elevator = this.getNextElevator(origin, destination);
+
+        // only start elevator when it is not running (when it's already running, future intermediate stops were added)
+        if (elevator.getState() == ElevatorState.IDLE) {
+            elevator.startElevator(origin, destination);
+        }
+
         this.makeAvailable(elevator);
     }
 
     /**
      * sends all elevators back to the first floor
-     * @throws InterruptedException if any thread interrupted the current thread before or while
-     * the current thread was waiting. The interrupted status of the current thread is cleared
-     * when this exception is thrown.
+     *
+     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied,
+     *                              and the thread is interrupted, either before or during the activity
      */
     public void sendElevatorsToFirstFloor() throws InterruptedException {
         // wait until all elevators are available
@@ -88,7 +115,7 @@ public class ElevatorController {
 
             this.availableElevators.stream().filter(elevator -> elevator.getCurrentFloor() != 0).forEach(elevator -> {
                 try {
-                    elevator.changeFloor(elevator.getCurrentFloor(), 0);
+                    elevator.startElevator(elevator.getCurrentFloor(), 0);
                 } catch (InterruptedException e) {
                     log.error("thread interrupted");
                 }
@@ -100,7 +127,7 @@ public class ElevatorController {
      * gets the available elevators at the moment
      * @return available elevators
      */
-    public List<Elevator> getAvailableElevators() {
+    public Set<Elevator> getAvailableElevators() {
         synchronized (this.availableElevators) {
             return this.availableElevators;
         }
