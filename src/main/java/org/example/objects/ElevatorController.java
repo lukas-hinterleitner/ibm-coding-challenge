@@ -21,6 +21,10 @@ public class ElevatorController {
         this.amountElevators = amountElevators;
     }
 
+    /**
+     * handle elevator when it becomes available again
+     * @param elevator elevator
+     */
     private void makeAvailable(final Elevator elevator) {
         synchronized (this.availableElevators) {
             this.availableElevators.add(elevator);
@@ -33,6 +37,14 @@ public class ElevatorController {
         }
     }
 
+    /**
+     * gets next best elevator based on distance from current floor and prioritize already traveling elevator for intermediate stops
+     * @param origin the floor where people should be picked up
+     * @param destination the floor where people should be dropped of
+     * @return returns the best elevator from the current position
+     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied,
+     *                              and the thread is interrupted, either before or during the activity
+     */
     private Elevator getNextElevator(final int origin, final int destination) throws InterruptedException {
         final ElevatorState state = Utils.determineElevatorState(origin, destination, ElevatorState.IDLE);
 

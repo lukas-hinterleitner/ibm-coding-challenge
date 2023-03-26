@@ -2,7 +2,6 @@ package org.example;
 
 import org.example.objects.DCTower;
 
-import java.security.SecureRandom;
 import java.util.Random;
 
 public class Main {
@@ -26,7 +25,7 @@ public class Main {
 
         final Random random = new Random(10);
 
-        final int maxDurationBetweenRequests = 2000; // change this variable to increase request rate
+        final int maxDurationBetweenRequests = 2000; // change this variable to alter request rate
         // simulate elevator behaviour in DC tower
         for (int i = 0; i < 20; i++) {
             // randomly choose between up and down

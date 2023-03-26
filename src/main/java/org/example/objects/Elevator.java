@@ -22,8 +22,6 @@ public class Elevator {
     private int id;
     private int currentFloor;
     private ElevatorState state;
-
-    private ElevatorState previousState;
     private final Set<Integer> intermediateStops = new HashSet<>();
 
     /**
@@ -31,11 +29,10 @@ public class Elevator {
      * @param origin the floor where people want to be picked up
      * @param destination the floor where the people will be dropped off
      * @param peopleInside this variable is just for changing the console output depending on if people are inside the elevator or not
-     * @throws InterruptedException
+     * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
      */
     private void travel(final int origin, final int destination, final boolean peopleInside) throws InterruptedException {
-        this.previousState = this.state;
-        this.state = Utils.determineElevatorState(origin, destination, this.previousState);
+        this.state = Utils.determineElevatorState(origin, destination, ElevatorState.IDLE);
 
         // do nothing when elevator gets request to travel to the same floor
         if (this.state == ElevatorState.IDLE) {
@@ -96,7 +93,6 @@ public class Elevator {
         this.travel(origin, destination, true);
         this.openAndCloseDoors();
 
-        this.previousState = this.state;
         this.state = ElevatorState.IDLE;
         this.intermediateStops.clear();
     }
